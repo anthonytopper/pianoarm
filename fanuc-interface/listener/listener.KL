@@ -1,0 +1,40 @@
+BEGIN
+SET_FILE_ATR (file_var, ATR_IA)
+-- Set up S8 server tag
+DISMOUNT_DEV(’S8:’,status)
+MOUNT_DEV(’S8:’,status)
+write (’ Mount Status = ’,status,cr)
+status = 0
+IF status = 0 THEN
+-- Connect the tag
+write (’Connecting ..’,cr)
+MSG_CONNECT (’S8:’,status)
+write (’Connect Status = ’,status,cr)
+IF status < > 0 THEN
+MSG_DISCO(’S8:’,status)
+write (’ Connecting..’,cr)
+MSG_CONNECT(’S8:’,status)
+write (’ Connect Status = ’,status,cr)
+ENDIF
+IF status = 0 THEN
+-- OPEN S8:
+write (’Opening’,cr)
+OPEN FILE file_var (’rw’,’S8:’)
+status = io_status(file_var)
+FOR tmp_int 1 TO 1000 DO
+write (’Reading’,cr)
+BYTES_AHEAD(file_var, entry, status)
+-- Read 10 bytes
+READ file_var (tmp_str::10)
+status = i/o_status(file_var)
+--Write 10 bytes
+write (tmp_str::10,cr)
+status = io_status(file_var)
+ENDFOR
+CLOSE FILE file_var
+write (’Disconnecting..’,cr)
+MSG_DISCO(’S8:’,status)
+write (’Done.’,cr)
+ENDIF
+ENDIF
+END tcpserv8

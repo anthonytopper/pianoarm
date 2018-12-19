@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- START PIANO IMPORTS -->
+<link rel="stylesheet" type="text/css" href="http://virtualpiano.me/style/main.css">
+<link rel="stylesheet" type="text/css" href="http://virtualpiano.me/style/pace.css">
+<link rel="icon" type="image/x-icon" href="http://virtualpiano.me/style/favicon.ico">
+<!-- END PIANO IMPORTS -->
+
+
+
+
+
+	<style type="text/css">
+	body {
+		background: white !important;
+	}
+	.pace {
+		display: none !important;
+	}
+		* {
+			font-family: monospace;
+		}
+		#info {
+			position: fixed;
+			padding:10px;
+		}
+		h1 {
+			margin-left: 10px;
+		}
+	</style>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script type="text/javascript" src="https://tonejs.github.io/MidiConvert/build/MidiConvert.js"></script>
+<script>
+(function(){
+var $ = jQuery;
+
+var SPEED = 300.0;
+var pos = {x:0,y:0,z:0}
+
+// y arg scale = [0,100]
+// height scale = [0,150]
+function changePosition(y,height) {
+
+	if (y < 0) y = 0;
+	if (y > 100) y = 100;
+
+	y = y * -5;
+
+	var halfY = (pos.y + y) / 2.0;
+
+	$("#dy").text((y-pos.y)/10);
+
+	if (height <= 0)
+		return moveToXYZ(0,y,0);
+
+	moveToXYZ(0,halfY,height,function () {
+		moveToXYZ(0,y,0);
+	})
+}
+
+function moveToXYZ(x,y,z,done) {
+    //setVar('var1',x);
+    //setVar('var2',y);
+    //setVar('var3',z);
+    pos = {x:x,y:y,z:z};
+    setVar('p','['+x+','+y+','+z+']',function () {
+    	//start(function () {
+    		//var t = dist(pos.x,pos.y,pos.z,x,y,z)/SPEED*1000;
+    		//done&&setTimeout(done,t+1000)
+    		waitForAvail(function () {
+    			done && done();
+    			clearInterval(i);
+    		})
+    	//});
+
+    });
+
+    var c = 0;
+    var i = setInterval(function () {
+    	$("#c").text(((y+z)/100 * (++c)).toFixed(2));
+    	if (c >= 100)
+    		clearInterval(i);
+    },20);
+    
+
+}
+
+function waitForAvail(callback) {
+	$("#waiting").show();
+	var name = 'running';
+	function ask(){
+		get('/rw/rapid/symbol/data/RAPID/T_ROB1/Module1/main/'+name+'?json=1',function (data) {
+			var running = (JSON.parse(data)._embedded._state[0].value == "TRUE")
+			if (running) {
+				setTimeout(ask, 100);
+			} else {
+				callback();
+				$("#waiting").hide();
+			}
+		});
+	}
+	ask();
+}
+
+function dist(x1,y1,z1,x2,y2,z2) {
+	var x = (x1-x2);
+	var y = (y1-y2);
+	var z = (z1-z2);
+	return Math.sqrt(x*x + y*y + z*z);
+}
+
+function setVar(name,value,callback) {
+	post('/rw/rapid/symbol/data/RAPID/T_ROB1/Module1/main/'+name+'?action=set','value='+value,callback)
+}
+
+function start(cb) {
+	post('/rw/rapid/execution?action=start',"regain=continue&execmode=continue&cycle=forever&condition=none&stopatbp=disabled&alltaskbytsp=false",function (data) {
+    	cb && cb();
+    })
+}
+
+function stop() {
+	post('/rw/rapid/execution?action=stop',"regain=continue&execmode=continue&cycle=once&condition=none&stopatbp=disabled&alltaskbytsp=false",function (data) {
+    	
+    })
+}
+function reset() {
+	post('/rw/rapid/execution?action=resetpp',"regain=continue&execmode=continue&cycle=once&condition=none&stopatbp=disabled&alltaskbytsp=false",function (data) {
+    	
+    })
+}
+
+function get(url,callback) {
+	var req1 = new XMLHttpRequest();
+	req1.onreadystatechange = function() {
+        if (req1.readyState == 4) {
+            callback && callback(req1.responseText);
+        };
+    };
+
+    req1.open('GET',url)
+    req1.send();
+}
+
+function post(url,data,callback) {
+	var req1 = new XMLHttpRequest();
+	req1.onreadystatechange = function() {
+        if (req1.readyState == 4) {
+            callback && callback(req1.responseText);
+        };
+    };
+
+    req1.open('POST',url)
+	req1.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+    req1.send(data);
+}
+
+var currentQ = 0;
+window.newNote = function (q) {
+	var deltaQ = q - currentQ;
+	changePosition(q,(Math.abs(deltaQ)>20?150:0))
+	$("#dq").text(deltaQ/10);
+	$("#p").text((deltaQ/30.0+Math.random()*1.2).toFixed(2));
+};
+
+window.changePosition = changePosition
+
+})();
+</script>
+</head>
+<body>
+	<h1>Piano Arm Motion</h1>
+	<div id="info">
+		p = <span id="p"></span><br>
+		Dq = <span id="dq"></span><br>
+		Dy = <span id="dy"></span><br>
+		c = <span id="c"></span>
+		<h2 id="waiting" style="display: none;">WAITING FOR CYCLE...</h2>
+	</div>
+ <br>
+ <br>
+ <br>
+ <br>
+ <br>
+
+<button type="button" onclick="getRWServiceResource()">Get RW Service</button>
+<button type="button" onclick="start()">START</button>
+<button type="button" onclick="stop()">STOP</button>
+<button type="button" onclick="reset()">RESET</button>
+<div id="name"></div>
+<div id="version"></div>
+<div id="versionname"></div>
+<div id="options"></div>
+ 
+<div id="piano">
+        <div id="btns">
+            <!--<div id="styled" class="text" onclick="piano.styler()">Styles</div>
+            <div id="assistd" class="text" onclick="piano.assist()">Key assist Off</div>
+            <div id="recordd" class="text" onclick="win_fnc.viewer('recorder')">Recorder</div>
+            <div id="sheetd" class="text" onclick="win_fnc.viewer('sheet')">Sheets</div>-->
+        </div>
+        <div id="white"></div>
+        <div id="black"></div>
+        <div id="audio" onerror="location.reload()"></div>
+    </div>
+
+    <div>
+    	<hr>
+    	<h1>Load MIDI</h1>
+<input type="file" accept="audio/midi" style="margin: 20px;">
+<button id="start-midi">PLAY</button>
+<button id="stop-midi">STOP</button>
+    </div>
+
+<script type="text/javascript" src="http://virtualpiano.me/js/pace.min.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/piano.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/notes.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/translators/translator.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/translators/retranslator.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/arm.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/db/music_list.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/keyboard.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/DOM/window_fnc.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/DOM/index.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/DOM/window_dom.js"></script>
+<script type="text/javascript" src="http://virtualpiano.me/js/lastsession.js"></script>
+<script type="text/javascript">
+	setTimeout(function() {
+		piano.music = function (el,t) {
+			var bs = ['a49','b49',
+			'a50','b50',
+			'a51','b52',
+			'a52','b53',
+			'a53','b54',
+			'a54','b56',
+			'a55','b57',
+			'a56','b81',
+			'a57','b87',
+			'a48','b69',
+			'a81','b84',
+			'a87','b89',
+			'a69','b73',
+			'a82','b79',
+			'a84','b80',
+			'a89','b83',
+			'a85','b68',
+			'a73','b71',
+			'a79','b72',
+			'a80','b74',
+			'a65','b76',
+			'a83','b90',
+			'a68','b67',
+			'a70','b86',
+			'a71',
+			'a72',
+			'a74',
+			'a75',
+			'a76',
+			'a90',
+			'a88',
+			'a67',
+			'a86',
+			'a66',
+			'a78',
+			'a77'];
+
+			var q = (100 * bs.indexOf(el) / bs.length) * 3;
+			console.log(q)
+			newNote(q);
+
+		}
+	}, 2000);
+
+
+document.querySelector("input[type='file']").addEventListener("change", function(e){
+	var files = e.target.files;
+	if (files.length > 0){
+		var file = files[0];
+		//document.querySelector("#FileDrop #Text").textContent = file.name;
+		parseFile(file);
+	}
+});
+
+function parseFile(file){
+	//read the file
+	var reader = new FileReader();
+	reader.onload = function(e){
+		
+		var partsData = MidiConvert.parse(e.target.result);
+		var tracks = partsData.tracks;
+		for (var i = 0; i < tracks.length; i++) {
+			if (tracks[i].notes.length > 0){
+				return openMIDINotes(tracks[i].notes);
+			}
+		}
+		//document.querySelector("#ResultsText").value = JSON.stringify(partsData, undefined, 2);
+	};
+	reader.readAsBinaryString(file);
+}
+
+function openMIDINotes(notes) {
+	function getNotesInRange(start,duration) {
+		var end = start + duration;
+		var result = [];
+		for (var i = 0; i < notes.length; i++) {
+			if ((notes[i].time * 1000) > start && (notes[i].time * 1000) < end){
+				result.push(notes[i]);
+			}
+		}
+		return result;
+	}
+
+	function highestNoteVal(notes) {
+		var highest = 0; var h = null;
+		for (var i = 0; i < notes.length; i++) {
+			if (notes[i].midi > highest){
+				highest = notes[i].midi;
+				h = notes[i]
+			}
+		}
+		return h;
+	}
+
+	var interval;
+	var osc;
+
+	jQuery("#start-midi").click(function () {
+		var pos = 0;
+		var currentNote = 0;
+		interval = setInterval(function () {
+
+			
+
+			pos += 100;
+			var notes = getNotesInRange(pos,500);
+			var target = highestNoteVal(notes);
+			console.log(notes,target);
+
+			if (!target) return;
+			if (currentNote == target.midi)
+				return;
+
+			changePosition((target.midi-40)*3, target.velocity>0.4? 150 : 0 );
+
+			jQuery('#p').text(target.velocity.toFixed(2));
+
+			if (osc) osc.stop();
+
+			var context = new AudioContext();
+			var o = context.createOscillator();
+			o.frequency.setTargetAtTime(Math.pow(2, (target.midi-69)/12)*440, context.currentTime, 0);
+			o.connect(context.destination);
+			o.start(0);
+
+			osc = o;
+
+			currentNote = target.midi;
+
+		},100);
+	})
+
+	jQuery("#stop-midi").click(function () {
+		clearInterval(interval);
+		if (osc) osc.stop();
+	})
+
+}
+
+</script>
+</body>
+</html>

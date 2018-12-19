@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style type="text/css">
+		.block {
+			width: 15px;
+			height: 15px;
+			position: absolute;
+			background: blue;
+			color:blue;
+			font-family: Arial;
+		}
+		.arm {
+			width: 15px;
+			height: 200px;
+			position: absolute;
+			background: black;
+			transition: transform 1000ms, left 1000ms, top 1000ms;
+		}
+		#arm1 {
+			transform-origin: bottom center;
+		}
+		#arm2 {
+			transform-origin: top center;
+		}
+	</style>
+	<title></title>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	<script type="text/javascript"></script>
+</head>
+<body>
+
+<img src="https://www.yamaha-keyboard-guide.com/images/xblank_piano_keyboard_layout.png.pagespeed.ic.serMUF5njL.png">
+
+<div id="block1" class="block"></div>
+<div id="block2" class="block"></div>
+<div id="block3" class="block"></div>
+
+<div id="arm1" class="arm"></div>
+<div id="arm2" class="arm"></div>
+
+<div style="
+    position: absolute;
+    top: 500px;
+    font-family: Arial;
+">
+    <h1>Piano Arm MQP Motion Simulation</h1>
+    <h2>Version 1.0a</h2>
+    <div style="color:gray;">Algorithm derived from work in <i>Thompson, Marc R., (June 2007) University of Jyväskylä. EXPRESSIVE GESTURES IN PIANO PERFORMANCE. <br>Master’s Thesis, Music, Mind &amp; Technology https://jyx.jyu.fi/bitstream/handle/123456789/13593/URN_NBN_fi_jyu-2007468.pdf?sequence=1
+
+</i></div>
+</div>
+
+<pre class="stats" style="
+    position: absolute;
+    top: 350px;"></pre>
+
+<script type="text/javascript">
+	
+	var TO_RAD = Math.PI / 180.0;
+
+	function move(sel,x,y,angle) {
+		if (x) $(sel).css('left',x+'px')
+		if (y) $(sel).css('top',y+'px')
+		if (angle) $(sel).css('transform','rotate('+angle+'deg)')
+		else if (sel.indexOf('arm'==-1)) $(sel).html('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;('+x.toFixed(2)+','+y.toFixed(2)+')');
+	}
+
+	function animate(sel,x,y,angle) {
+		if (x) $(sel).animate({'left':x+'px'})
+		if (y) $(sel).animate({'top':y+'px'})
+		if (angle) $(sel).css({'transform':'rotate('+angle+'deg)'})
+	}
+
+	function gotoEndpos(x,f) {
+
+		f = f || 1
+
+		move('#block1',x,100)
+		move('#block2',x+ 0.4*(x-400)*f ,300)
+		move('#block3',x,500 - Math.abs(x-400)*0.4*f)
+
+		angle = Math.atan((400-x)/400*f) * 180/Math.PI
+		angle2 = Math.atan((x-400)/400*f) * 180/Math.PI
+
+		move("#arm1",x-200*Math.sin(angle * TO_RAD),100,angle)
+		move("#arm2",x-200*Math.sin(angle * TO_RAD),300,angle2)
+
+	}
+
+	var curr = 0
+	var i = null
+	var fmax = 1.6
+	function playNote(x) {
+		var b = 22
+		var m = 37
+
+		// var x = b + m * n;
+
+		gotoEndpos(x,0.5)
+
+		var d = Math.abs(curr-x) / 10000.0
+		var f = 0.5;
+
+		if (i)
+			clearInterval(i)
+
+
+		i = setInterval(function () {
+			f+= d
+			gotoEndpos(x,f)
+
+			if (f >= fmax)
+				clearInterval(i)
+
+			stats(d,f,curr,x,fmax)
+
+		},150)
+
+		curr = x
+
+	}
+
+	function stats(d,f,c,x,fmax) {
+		$('pre.stats').html('d = '+d+'<br>'+'f = '+f+'<br>'+'c = '+c+'<br>'+'x = '+x+'<br>'+'<br>'+'f_max = '+fmax+'<br>');
+		
+	}
+
+	$("img").click(function (e) {
+		playNote(e.pageX);
+	})
+
+	// setInterval(function () {
+	// 	gotoEndpos(Math.random()*800)
+	// },500)
+
+
+</script>
+
+</body>
+</html>
